@@ -3,10 +3,20 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"kasir-api/database"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/viper"
 )
+
+type Config struct {
+	Port   string `mapstructure:"port"`
+	DBConn string `mapstructure:"db_conn"`
+}
 
 type Produk struct {
 	ID    int    `json:"id"`
@@ -107,6 +117,23 @@ func deleteProduk(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	if _, err := os.Stat(".env"); err == nil {
+		viper.SetConfigFile(".env")
+		_ = viper.ReadInConfig()
+	}
+
+	config := Config{
+		Port:   viper.GetString("PORT"),
+		DBConn: viper.GetString("DB_CONN"),
+	}
+
+	db, err := database.InitDB(config.DBConn)
+	if err != nil {
+		log.Fatal("Failed to initialize database:", err)
+	}
+	defer db.Close()
 	// GET localhost:8080/api/produk/{id}
 	// PUT localhost:8080/api/produk/{id}
 	// DELETE localhost:8080/api/produk/{id}
@@ -154,10 +181,10 @@ func main() {
 		})
 	})
 
-	fmt.Println("Server running di localhost:8080")
+	fmt.Println("Server running di localhost:" + config.Port)
 
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":"+config.Port, nil)
 	if err != nil {
-		fmt.Println("gagal running server")
+		fmt.Println("gagal running server", err)
 	}
 }
